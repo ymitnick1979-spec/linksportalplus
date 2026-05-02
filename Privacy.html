@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Links Portal Plus — ウィンドウ型ブックマーク拡張機能</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── リセット & ベース ─────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:    #0b0f1a;
+  --paper:  #f5f0e8;
+  --gold:   #c5a059;
+  --gold2:  #e8c97a;
+  --dim:    #6b7280;
+  --panel:  #111827;
+  --panel2: #1e293b;
+  --border: rgba(197,160,89,0.25);
+  --ff-display: 'Shippori Mincho', serif;
+  --ff-mono:    'DM Mono', monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ink);
+  color: #e2e8f0;
+  font-family: var(--ff-mono);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── ノイズ・グレイン ───────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+/* ── グリッド線の背景 ──────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(197,160,89,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(197,160,89,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── レイアウト共通 ────────────────────────────────── */
+section, header, footer { position: relative; z-index: 1; }
+.container { max-width: 900px; margin: 0 auto; padding: 0 32px; }
+
+/* ── ヘッダー ──────────────────────────────────────── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 20px 0;
+}
+.header-inner {
+  max-width: 900px; margin: 0 auto; padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo {
+  display: flex; align-items: center; gap: 12px;
+}
+.logo-mark {
+  width: 36px; height: 36px;
+  border: 1px solid var(--gold);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
+  padding: 6px;
+}
+.logo-mark span {
+  display: block; background: var(--gold); opacity: 0.8;
+}
+.logo-mark span:nth-child(3) { opacity: 0.4; }
+.logo-text {
+  font-family: var(--ff-mono);
+  font-size: 0.75rem;
+  letter-spacing: 4px;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.header-tag {
+  font-size: 0.65rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 4px 10px;
+}
+
+/* ── ヒーロー ──────────────────────────────────────── */
+#hero {
+  padding: 100px 0 80px;
+  text-align: center;
+}
+.eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 6px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  opacity: 0.8;
+}
+.hero-title {
+  font-family: var(--ff-display);
+  font-size: clamp(2.4rem, 6vw, 4.2rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: #f1f5f9;
+  margin-bottom: 12px;
+}
+.hero-title em {
+  font-style: normal;
+  color: var(--gold);
+}
+.hero-subtitle {
+  font-size: clamp(0.9rem, 2vw, 1.05rem);
+  color: var(--dim);
+  max-width: 520px;
+  margin: 0 auto 48px;
+  line-height: 1.8;
+}
+
+/* スクロールダウン矢印 */
+.scroll-hint {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim);
+  font-size: 0.65rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  animation: bob 2.4s ease-in-out infinite;
+}
+.scroll-hint svg { opacity: 0.5; }
+@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+
+/* ── ダッシュボードモックアップ ───────────────────── */
+#mockup {
+  padding: 20px 0 80px;
+}
+.mockup-frame {
+  max-width: 860px;
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  background: #0a0f1e;
+  overflow: hidden;
+  position: relative;
+}
+.mockup-bar {
+  height: 28px;
+  background: #060a14;
+  border-bottom: 1px solid rgba(197,160,89,0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 6px;
+}
+.mockup-dot { width: 8px; height: 8px; border-radius: 50%; }
+.mockup-dot:nth-child(1) { background: #ef4444; opacity: 0.7; }
+.mockup-dot:nth-child(2) { background: #f59e0b; opacity: 0.7; }
+.mockup-dot:nth-child(3) { background: #22c55e; opacity: 0.7; }
+.mockup-tab-row {
+  height: 22px;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px;
+}
+.m-tab {
+  font-size: 0.55rem; letter-spacing: 1px;
+  padding: 2px 8px; border-radius: 2px;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #666;
+}
+.m-tab.active {
+  background: var(--gold); color: #000; font-weight: 700;
+  border-color: var(--gold);
+}
+.mockup-body {
+  height: 340px;
+  position: relative;
+  overflow: hidden;
+}
+/* ウィンドウカード */
+.m-win {
+  position: absolute;
+  background: rgba(15,23,42,0.92);
+  border: 1px solid rgba(197,160,89,0.18);
+  backdrop-filter: blur(8px);
+  min-width: 160px;
+  animation: fadeSlideIn 0.6s ease both;
+}
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.m-win:nth-child(1) { left: 24px; top: 22px; width: 195px; animation-delay: 0.1s; }
+.m-win:nth-child(2) { left: 238px; top: 14px; width: 190px; animation-delay: 0.25s; }
+.m-win:nth-child(3) { left: 448px; top: 30px; width: 185px; animation-delay: 0.4s; }
+.m-win:nth-child(4) { left: 650px; top: 18px; width: 185px; animation-delay: 0.55s; }
+.m-win:nth-child(5) { left: 60px; top: 195px; width: 200px; animation-delay: 0.3s; }
+.m-win:nth-child(6) { left: 290px; top: 190px; width: 200px; animation-delay: 0.45s; }
+.m-win:nth-child(7) { left: 510px; top: 200px; width: 185px; animation-delay: 0.6s; }
+.m-win-header {
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(197,160,89,0.12);
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.03);
+}
+.m-win-title { font-size: 0.6rem; letter-spacing: 1.5px; color: var(--gold); font-weight: 700; }
+.m-win-btns { display: flex; gap: 4px; }
+.m-win-btns span { font-size: 0.55rem; color: #475569; cursor: pointer; }
+.m-link {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 0.6rem; color: #94a3b8;
+}
+.m-link:last-child { border-bottom: none; }
+.m-icon {
+  width: 10px; height: 10px; border-radius: 1px;
+  background: var(--gold); opacity: 0.7; flex-shrink: 0;
+}
+.m-badge {
+  margin-left: auto;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.5rem;
+  padding: 0 3px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+/* ── セクション共通 ────────────────────────────────── */
+.section-label {
+  font-size: 0.62rem;
+  letter-spacing: 5px;
+  color: var(--gold);
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: var(--ff-display);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.3;
+  margin-bottom: 16px;
+}
+.section-body {
+  color: var(--dim);
+  font-size: 0.9rem;
+  line-height: 1.9;
+  max-width: 560px;
+}
+
+/* ── 区切り線 ──────────────────────────────────────── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* ── 機能一覧 ──────────────────────────────────────── */
+#features { padding: 80px 0; }
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1px;
+  border: 1px solid var(--border);
+  margin-top: 56px;
+}
+.feat-card {
+  background: var(--panel);
+  padding: 32px 28px;
+  transition: background 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.feat-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  width: 2px; height: 0;
+  background: var(--gold);
+  transition: height 0.3s ease;
+}
+.feat-card:hover { background: var(--panel2); }
+.feat-card:hover::before { height: 100%; }
+.feat-icon {
+  font-size: 1.6rem;
+  margin-bottom: 16px;
+  display: block;
+}
+.feat-name {
+  font-family: var(--ff-mono);
+  font-size: 0.78rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.feat-desc {
+  font-size: 0.82rem;
+  color: var(--dim);
+  line-height: 1.8;
+}
+
+/* ── 詳細機能 ──────────────────────────────────────── */
+#details { padding: 80px 0; }
+.detail-list {
+  margin-top: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+}
+.detail-item {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  border-bottom: 1px solid var(--border);
+}
+.detail-item:last-child { border-bottom: none; }
+.detail-left {
+  padding: 28px 32px;
+  border-right: 1px solid var(--border);
+  background: rgba(197,160,89,0.03);
+}
+.detail-num {
+  font-size: 0.6rem;
+  letter-spacing: 3px;
+  color: var(--gold);
+  opacity: 0.5;
+  margin-bottom: 8px;
+}
+.detail-name {
+  font-family: var(--ff-display);
+  font-size: 1.1rem;
+  color: #f1f5f9;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.detail-right {
+  padding: 28px 32px;
+}
+.detail-right p {
+  font-size: 0.85rem;
+  color: var(--dim);
+  line-height: 1.85;
+  margin-bottom: 12px;
+}
+.detail-right p:last-child { margin-bottom: 0; }
+.detail-tags {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px;
+}
+.tag {
+  font-size: 0.62rem;
+  letter-spacing: 1.5px;
+  padding: 3px 9px;
+  border: 1px solid rgba(197,160,89,0.3);
+  color: var(--gold);
+  opacity: 0.8;
+}
+
+/* ── 使い方 ────────────────────────────────────────── */
+#howto { padding: 80px 0; }
+.steps {
+  margin-top: 56px;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+}
+.step {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  counter-increment: step;
+}
+.step:last-child { border-bottom: none; }
+.step-num {
+  width: 80px; flex-shrink: 0;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 28px 0 28px;
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  opacity: 0.4;
+  border-right: 1px solid var(--border);
+}
+.step-num::before { content: counter(step, decimal-leading-zero); }
+.step-body {
+  padding: 24px 32px;
+  flex: 1;
+}
+.step-title {
+  font-family: var(--ff-display);
+  font-size: 1rem;
+  color: #f1f5f9;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.step-desc {
+  font-size: 0.82rem;
+  color: var(--dim);
+  line-height: 1.8;
+}
+.step-desc code {
+  background: rgba(197,160,89,0.12);
+  color: var(--gold);
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-size: 0.78rem;
+}
+
+/* ── 権限説明 ──────────────────────────────────────── */
+#permissions { padding: 80px 0; }
+.perm-grid {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1px;
+  border: 1px solid var(--border);
+}
+.perm-card {
+  background: var(--panel);
+  padding: 24px 22px;
+}
+.perm-name {
+  font-family: var(--ff-mono);
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.perm-reason {
+  font-size: 0.78rem;
+  color: var(--dim);
+  line-height: 1.7;
+}
+
+/* ── プライバシーポリシー (追加セクション) ────────────────── */
+#privacy { padding: 80px 0; }
+.privacy-box {
+  margin-top: 48px;
+  border: 1px solid var(--border);
+  padding: 32px;
+  background: rgba(255,255,255,0.02);
+}
+.privacy-text {
+  font-size: 0.85rem;
+  color: var(--dim);
+  line-height: 1.8;
+}
+.privacy-text h3 {
+  color: var(--gold);
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  margin: 24px 0 8px;
+}
+.privacy-text p { margin-bottom: 12px; }
+
+/* ── フッター ──────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 0;
+  text-align: center;
+}
+.footer-logo {
+  font-size: 0.65rem;
+  letter-spacing: 5px;
+  color: var(--gold);
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin-bottom: 12px;
+}
+.footer-links {
+  margin-bottom: 20px;
+  display: flex; justify-content: center; gap: 24px;
+}
+.footer-links a {
+  font-size: 0.65rem; color: var(--gold); text-decoration: none;
+  letter-spacing: 2px; opacity: 0.6; transition: opacity 0.2s;
+}
+.footer-links a:hover { opacity: 1; }
+.footer-copy {
+  font-size: 0.72rem;
+  color: var(--dim);
+  opacity: 0.5;
+}
+
+/* ── レスポンシブ ──────────────────────────────────── */
+@media (max-width: 680px) {
+  .detail-item { grid-template-columns: 1fr; }
+  .detail-left { border-right: none; border-bottom: 1px solid var(--border); }
+  .mockup-body { height: 220px; }
+  .m-win:nth-child(n+5) { display: none; }
+  .header-tag { display: none; }
+}
+
+/* ── アニメーション ────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- ヘッダー (略) -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <span class="logo-text">Links Portal Plus</span>
+    </div>
+    <span class="header-tag">Chrome Extension</span>
+  </div>
+</header>
+
+<!-- 各セクション (中略: オリジナルのコードをそのまま維持) -->
+<!-- ... Hero, Mockup, Features, Details, Howto, Permissions ... -->
+
+<!-- (Permissionsセクションの後に以下を追加) -->
+<hr class="divider">
+
+<section id="privacy">
+  <div class="container">
+    <p class="section-label reveal">Privacy Policy</p>
+    <h2 class="section-title reveal">プライバシーポリシー</h2>
+    <div class="privacy-box reveal">
+      <div class="privacy-text">
+        <p>「Links Portal Plus」（以下「本拡張機能」）は、ユーザーのプライバシーを尊重し、データの保護に細心の注意を払っています。本ポリシーでは、情報の取り扱いについて説明します。</p>
+        
+        <h3>1. データの収集と保存</h3>
+        <p>本拡張機能は、ユーザーの氏名、メールアドレス、パスワード等の個人情報を一切収集しません。ユーザーが登録したリンク、ウィンドウの配置、設定情報は、ブラウザの <code>chrome.storage</code> API を使用して、ユーザーの端末内にのみ保存されます。[cite: 1]</p>
+        
+        <h3>2. 権限の使用目的</h3>
+        <p>本拡張機能が要求する各権限は、機能提供の目的にのみ使用されます。[cite: 1]</p>
+        <ul>
+          <li><strong>storage:</strong> リンクデータや設定のローカル保存。[cite: 1]</li>
+          <li><strong>alarms:</strong> Gmail等の未読数をバックグラウンドで定期確認するため。[cite: 1]</li>
+          <li><strong>scripting / tabs:</strong> 右クリック制限の解除機能を動作させるため。[cite: 1]</li>
+          <li><strong>contextMenus:</strong> 右クリックからリンクを追加するため。[cite: 1]</li>
+        </ul>
+
+        <h3>3. Gmail および Google Chat のデータ</h3>
+        <p>Gmailの未読数取得は、ブラウザ内のAtomフィードを通じて行われ、数値のみがリンクバッジに反映されます。取得したデータが外部のサーバーや第三者に送信されることはありません。[cite: 1]</p>
+
+        <h3>4. 第三者への提供</h3>
+        <p>本拡張機能が、ユーザーの利用データを販売、共有、または広告目的で第三者に提供することはありません。</p>
+
+        <h3>5. お問い合わせ</h3>
+        <p>本ポリシーまたは本拡張機能に関するご質問は、デベロッパーダッシュボードに記載の連絡先までお寄せください。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- フッター -->
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="#hero">TOP</a>
+      <a href="#features">FEATURES</a>
+      <a href="#privacy">PRIVACY</a>
+    </div>
+    <div class="footer-logo">Links Portal Plus</div>
+    <p class="footer-copy">Chrome Extension — Manifest V3</p>
+  </div>
+</footer>
+
+<script>
+// スクロール reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
